@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="description" content="Atira emojao!">
+  <link rel="icon" href="https://i.postimg.cc/PqBkfHQF/35a1422204ab0593450109e465a2daca.jpg" type="image/png">
+  <title>Desvie das bolotas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+
+    canvas {
+      display: block;
+      margin: auto;
+      background: radial-gradient(#000, #111);
+      border: 2px solid white;
+      border-radius: 10px;
+    }
+
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      color: #00ffff;
+      font-family: 'Press Start 2P', cursive;
+      text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff;
+      animation: glow 1.5s ease-in-out infinite alternate;
+      white-space: nowrap;
+    }
+
+    @keyframes glow {
+      from {
+        text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff;
+      }
+      to {
+        text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffff;
+      }
+    }
+
+    #musicToggle, #restartBtn {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid white;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #musicToggle {
+      top: 10px;
+      right: 10px;
+    }
+
+    #restartBtn {
+      display: none;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+    }
+
+    #musicToggle:hover, #restartBtn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">Recai Developer</div>
+  <button id="musicToggle">🎵 Ligado</button>
+  <button id="restartBtn">🔁 Reiniciar Jogo</button>
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+  <audio id="bgm" autoplay loop>
+    <source src="https://files.catbox.moe/l0x2xv.mp3" type="audio/mp3">
+    Seu navegador não suporta áudio.
+  </audio>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const bgm = document.getElementById("bgm");
+    const musicToggle = document.getElementById("musicToggle");
+    const restartBtn = document.getElementById("restartBtn");
+
+    let keys = {};
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    const playerImage = new Image();
+    playerImage.src = "https://i.postimg.cc/PqBkfHQF/35a1422204ab0593450109e465a2daca.jpg";
+
+    let player, bullets, enemies, enemyBullets, gameOver;
+
+    function resetGame() {
+      player = {
+        x: canvas.width / 2 - 20,
+        y: canvas.height - 50,
+        width: 40,
+        height: 40,
+        speed: 4,
+        cooldown: 300,
+        lastShot: 0,
+        alive: true
+      };
+
+      bullets = [];
+      enemies = [];
+      enemyBullets = [];
+      gameOver = false;
+      restartBtn.style.display = "none";
+      bgm.play();
+      requestAnimationFrame(update);
+    }
+
+    function drawPlayer() {
+      ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+    }
+
+    function drawBullet(bullet, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    }
+
+    function spawnEnemy() {
+      const width = 30;
+      const height = 30;
+      const x = Math.random() * (canvas.width - width);
+      enemies.push({
+        x, y: -30, width, height,
+        speed: 5 + Math.random() * 4,
+        shootInterval: 400 + Math.random() * 800,
+        lastShot: Date.now()
+      });
+    }
+
+    function drawEnemies() {
+      ctx.fillStyle = "red";
+      enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (player.alive) {
+        if (keys["ArrowLeft"] || keys["a"]) player.x -= player.speed;
+        if (keys["ArrowRight"] || keys["d"]) player.x += player.speed;
+        if (keys["ArrowUp"] || keys["w"]) player.y -= player.speed;
+        if (keys["ArrowDown"] || keys["s"]) player.y += player.speed;
+
+        player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+        player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
+
+        if ((keys[" "] || keys["Space"]) && Date.now() - player.lastShot > player.cooldown) {
+          bullets.push({
+            x: player.x + player.width / 2 - 2,
+            y: player.y,
+            width: 4,
+            height: 10,
+            speed: 6
+          });
+          player.lastShot = Date.now();
+        }
+      }
+
+      bullets = bullets.filter(b => b.y > 0);
+      bullets.forEach(b => b.y -= b.speed);
+
+      drawPlayer();
+      bullets.forEach(b => drawBullet(b, "white"));
+      drawEnemies();
+      enemyBullets.forEach(b => drawBullet(b, "orange"));
+
+      if (Math.random() < 0.03) spawnEnemy();
+
+      enemies.forEach(e => {
+        e.y += e.speed;
+
+        if (Date.now() - e.lastShot > e.shootInterval) {
+          enemyBullets.push({
+            x: e.x + e.width / 2 - 2,
+            y: e.y + e.height,
+            width: 4,
+            height: 10,
+            speed: 3
+          });
+          e.lastShot = Date.now();
+        }
+      });
+
+      enemyBullets = enemyBullets.filter(b => b.y < canvas.height);
+      enemyBullets.forEach(b => b.y += b.speed);
+
+      enemyBullets.forEach((b, i) => {
+        if (
+          b.x < player.x + player.width &&
+          b.x + b.width > player.x &&
+          b.y < player.y + player.height &&
+          b.y + b.height > player.y
+        ) {
+          gameOver = true;
+          player.alive = false;
+          bgm.pause();
+          restartBtn.style.display = "block";
+        }
+      });
+
+      bullets.forEach((b, i) => {
+        enemies.forEach((e, j) => {
+          if (
+            b.x < e.x + e.width &&
+            b.x + b.width > e.x &&
+            b.y < e.y + e.height &&
+            b.y + b.height > e.y
+          ) {
+            enemies.splice(j, 1);
+            bullets.splice(i, 1);
+          }
+        });
+      });
+
+      enemies = enemies.filter(e => e.y < canvas.height);
+
+      if (!gameOver) {
+        requestAnimationFrame(update);
+      }
+    }
+
+    musicToggle.addEventListener("click", () => {
+      if (bgm.paused) {
+        bgm.play();
+        musicToggle.textContent = "🎵 Ligado";
+      } else {
+        bgm.pause();
+        musicToggle.textContent = "🎵 Desligado";
+      }
+    });
+
+    restartBtn.addEventListener("click", () => {
+      resetGame();
+    });
+
+    resetGame();
+  </script>
+</body>
+</html>
